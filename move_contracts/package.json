@@ -1,0 +1,17 @@
+{
+  "name": "onehack-move-scripts",
+  "version": "1.0.0",
+  "scripts": {
+    "seed": "ts-node scripts/seed-athletes.ts",
+    "deploy": "bash scripts/deploy.sh"
+  },
+  "dependencies": {
+    "@mysten/sui": "^1.0.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.12.0",
+    "ts-node": "^10.9.2"
+  }
+}

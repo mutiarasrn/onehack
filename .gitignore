@@ -1,0 +1,42 @@
+# ── Dependencies ──────────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# ── Move build artifacts ──────────────────────────────────────────────────────
+move_contracts/build/
+move_contracts/.move/
+
+# ── Deploy artifacts (contain object IDs but not secrets) ────────────────────
+move_contracts/scripts/deploy-result.json
+
+# ── Next.js ───────────────────────────────────────────────────────────────────
+frontend/.next/
+frontend/out/
+
+# ── TypeScript build ──────────────────────────────────────────────────────────
+dist/
+*.js.map
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Editor ────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo

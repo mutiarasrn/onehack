@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-family: 'Material Symbols Outlined';
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 7%;
+    --foreground: 0 0% 89%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 89%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 89%;
+    --primary: 74 100% 50%;
+    --primary-foreground: 74 100% 10%;
+    --secondary: 0 0% 27%;
+    --secondary-foreground: 0 0% 89%;
+    --muted: 0 0% 16%;
+    --muted-foreground: 68 18% 73%;
+    --accent: 0 0% 16%;
+    --accent-foreground: 0 0% 89%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 74 100% 50%;
+    --radius: 0.125rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Rarity card glows */
+.card-legendary {
+  @apply relative;
+  background: linear-gradient(135deg, #1a0533, #2d1b69, #1a0533);
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.5), 0 0 60px rgba(109, 40, 217, 0.3);
+}
+
+.card-legendary::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #6d28d9, #7c3aed, #a78bfa, #7c3aed, #6d28d9);
+  background-size: 200% 200%;
+  animation: shimmer 3s linear infinite;
+  z-index: -1;
+}
+
+.card-gold {
+  background: linear-gradient(135deg, #1a0f00, #3d2000, #1a0f00);
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.4), 0 0 40px rgba(245, 158, 11, 0.2);
+}
+
+.card-silver {
+  background: linear-gradient(135deg, #0f1724, #1e293b, #0f1724);
+  box-shadow: 0 0 15px rgba(148, 163, 184, 0.3);
+}
+
+.card-bronze {
+  background: linear-gradient(135deg, #1a0800, #2d1200, #1a0800);
+  box-shadow: 0 0 15px rgba(180, 83, 9, 0.3);
+}
+
+/* Score flash animation */
+.score-up {
+  animation: score-flash-green 0.6s ease-out;
+}
+
+.score-down {
+  animation: score-flash-red 0.6s ease-out;
+}
+
+@keyframes score-flash-green {
+  0% { color: #22c55e; transform: scale(1.2); }
+  100% { color: inherit; transform: scale(1); }
+}
+
+@keyframes score-flash-red {
+  0% { color: #ef4444; transform: scale(0.9); }
+  100% { color: inherit; transform: scale(1); }
+}
+
+/* Gradient text */
+.gradient-text {
+  @apply bg-clip-text text-transparent;
+  background-image: linear-gradient(135deg, #a78bfa, #60a5fa, #34d399);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { @apply bg-background; }
+::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground; }
