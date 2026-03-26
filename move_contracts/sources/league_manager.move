@@ -1,12 +1,12 @@
 /// LeagueManager — create and manage fantasy leagues (contests).
-/// Entry fee is paid in FANTASY (custom in-game token). Prize pool accumulates here.
+/// Entry fee is paid in OCT (native token). Prize pool accumulates here.
 module onehack_fantasy::league_manager {
     use one::object::{Self, UID, ID};
     use one::transfer;
     use one::tx_context::{Self, TxContext};
     use one::event;
     use one::coin::{Self, Coin};
-    use onehack_fantasy::game_token::FANTASY;
+    use one::oct::OCT;
     use one::balance::{Self, Balance};
     use one::clock::{Self, Clock};
     use std::string::{Self, String};
@@ -34,13 +34,13 @@ module onehack_fantasy::league_manager {
         id: UID,
         name: String,
         sport: String,
-        entry_fee: u64,           // FANTASY, in MIST (1 FANTASY = 1_000_000_000 MIST)
+        entry_fee: u64,           // OCT, in MIST (1 OCT = 1_000_000_000 MIST)
         max_entrants: u64,
         start_time_ms: u64,       // unix ms
         end_time_ms: u64,
         status: u8,
         entrants: vector<address>,
-        prize_pool: Balance<FANTASY>,
+        prize_pool: Balance<OCT>,
         prize_splits: vector<u64>, // percentages, sum = 100
         winners: vector<address>,  // filled after resolution
     }
@@ -118,7 +118,7 @@ module onehack_fantasy::league_manager {
 
     public entry fun join_league(
         league: &mut League,
-        payment: Coin<FANTASY>,
+        payment: Coin<OCT>,
         clock: &Clock,
         ctx: &mut TxContext,
     ) {

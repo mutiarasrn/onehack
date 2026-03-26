@@ -3,55 +3,32 @@
 import { useState } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import Link from "next/link";
-
-const OCT = (n: number) => BigInt(Math.floor(n * 1_000_000_000));
-
-const MOCK_LEAGUES = [
-  {
-    id: 1, name: "OneChain Hoops Classic", sport: "Basketball", tag: "Basketball",
-    entryFee: "Free Entry", prizePool: "500 ONE", slots: 32, maxSlots: 50,
-    timeLeft: "04H 22M LEFT", status: 0, fillPct: 65,
-  },
-  {
-    id: 2, name: "Grand Prix Sprint", sport: "F1", tag: "F1",
-    entryFee: "10 ONE", prizePool: "1,000 ONE", slots: 15, maxSlots: 100,
-    timeLeft: "1D 12H LEFT", status: 0, fillPct: 15,
-  },
-  {
-    id: 3, name: "Midnight Derby", sport: "Soccer", tag: "Daily Challenge",
-    entryFee: "Free Entry", prizePool: "500 ONE", slots: 0, maxSlots: 120,
-    timeLeft: "Starting 12:00 AM", status: 0, fillPct: 0,
-  },
-  {
-    id: 4, name: "Founders Series IV", sport: "Basketball", tag: "Invitational Pro",
-    entryFee: "Whitelist", prizePool: "2,000 ONE", slots: 15, maxSlots: 15,
-    timeLeft: "FULL", status: 0, fillPct: 100,
-  },
-  {
-    id: 5, name: "Crypto Masters", sport: "F1", tag: "Flash Event",
-    entryFee: "50 ONE", prizePool: "5,000 ONE", slots: 8, maxSlots: 64,
-    timeLeft: "2D 4H LEFT", status: 0, fillPct: 12,
-  },
-  {
-    id: 6, name: "NBA All-Stars Showdown", sport: "Basketball", tag: "Basketball",
-    entryFee: "25 ONE", prizePool: "175 ONE", slots: 7, maxSlots: 10,
-    timeLeft: "LIVE", status: 1, fillPct: 70,
-  },
-  {
-    id: 7, name: "Champions League Fantasy", sport: "Soccer", tag: "Soccer",
-    entryFee: "5 ONE", prizePool: "155 ONE", slots: 31, maxSlots: 50,
-    timeLeft: "LIVE", status: 1, fillPct: 62,
-  },
-  {
-    id: 8, name: "Crypto Cup", sport: "Soccer", tag: "Soccer",
-    entryFee: "50 ONE", prizePool: "400 ONE", slots: 8, maxSlots: 8,
-    timeLeft: "FINISHED", status: 2, fillPct: 100,
-  },
-];
+import { useLeagues, type OnChainLeague } from "@/hooks/useLeagues";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 const TABS = ["Open", "Active", "Completed"];
 const STATUS_MAP: Record<string, number> = { Open: 0, Active: 1, Completed: 2 };
-const SPORTS = ["All Sports", "Basketball", "F1", "Soccer"];
+const SPORTS = ["All Sports", "NBA", "SOCCER"];
+
+function formatTimeLeft(endTimeMs: number, status: number): string {
+  if (status === 2) return "FINISHED";
+  if (status === 1) return "LIVE";
+  const diff = endTimeMs - Date.now();
+  if (diff <= 0) return "STARTING";
+  const h = Math.floor(diff / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  if (h > 48) return `${Math.floor(h / 24)}D LEFT`;
+  return `${h}H ${m}M LEFT`;
+}
+
+function formatEntryFee(mist: number): string {
+  if (mist === 0) return "Free Entry";
+  return `${(mist / 1_000_000_000).toFixed(0)} OCT`;
+}
+
+function formatPrizePool(mist: number): string {
+  return `${(mist / 1_000_000_000).toFixed(0)} OCT`;
+}
 
 const INFO_ITEMS = [
   {
@@ -74,8 +51,10 @@ const INFO_ITEMS = [
 export default function LeaguesPage() {
   const [tab, setTab] = useState("Open");
   const [sportFilter, setSportFilter] = useState("All Sports");
+  const { leagues, loading } = useLeagues();
+  const { isAdmin } = useIsAdmin();
 
-  const filtered = MOCK_LEAGUES.filter((l) => {
+  const filtered = leagues.filter((l) => {
     const statusMatch = l.status === STATUS_MAP[tab];
     const sportMatch = sportFilter === "All Sports" || l.sport === sportFilter;
     return statusMatch && sportMatch;
@@ -102,14 +81,16 @@ export default function LeaguesPage() {
                 FANTASY <br /><span className="text-[#D2FF00]">LEAGUES</span>
               </h1>
             </div>
-            <Link href="/leagues/create">
-              <button
-                className="px-8 py-4 flex items-center gap-3 font-black uppercase tracking-tight hover:opacity-90 active:scale-95 transition-all text-[#171e00]"
-                style={{ background: "linear-gradient(135deg, #D2FF00 0%, #afd500 100%)", fontFamily: "'Space Grotesk', sans-serif" }}
-              >
-                + Create League
-              </button>
-            </Link>
+            {isAdmin && (
+              <Link href="/leagues/create">
+                <button
+                  className="px-8 py-4 flex items-center gap-3 font-black uppercase tracking-tight hover:opacity-90 active:scale-95 transition-all text-[#171e00]"
+                  style={{ background: "linear-gradient(135deg, #D2FF00 0%, #afd500 100%)", fontFamily: "'Space Grotesk', sans-serif" }}
+                >
+                  + Create League
+                </button>
+              </Link>
+            )}
           </div>
         </section>
 
@@ -153,9 +134,12 @@ export default function LeaguesPage() {
         </section>
 
         {/* Bento Grid */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="py-24 text-center text-white/40 text-lg">Loading leagues from chain...</div>
+        ) : filtered.length === 0 ? (
           <div className="py-24 text-center text-white/40 text-lg">
-            No {tab.toLowerCase()} leagues found.
+            No {tab.toLowerCase()} leagues found.{" "}
+            {tab === "Open" && isAdmin && <Link href="/leagues/create" className="text-[#D2FF00] underline">Create one?</Link>}
           </div>
         ) : (
           <section className="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -163,21 +147,15 @@ export default function LeaguesPage() {
             {/* Featured Large Card */}
             {featured && (
               <div className="md:col-span-8 group relative overflow-hidden bg-[#1b1b1b] p-8 min-h-[400px] flex flex-col justify-between">
-                <div className="absolute top-0 right-0 p-8 z-10">
-                  <span className="bg-[#ffb4ab] text-[#690005] px-4 py-1 font-black text-xs uppercase tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                    Closing Soon
-                  </span>
-                </div>
-
                 <div className="relative z-10">
                   <span className="text-[#afd500] uppercase tracking-widest text-xs mb-2 block font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                    {featured.tag}
+                    {featured.sport}
                   </span>
                   <h2 className="text-5xl font-black italic tracking-tighter mb-4 leading-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
                     {featured.name}
                   </h2>
                   <p className="text-[#c5c9ac] max-w-md mb-8">
-                    Compete with top managers globally for a share of the {featured.prizePool} pool. Build your ultimate lineup and dominate the leaderboard.
+                    Compete for a share of the {formatPrizePool(featured.prizePoolMist)} prize pool. Build your ultimate lineup and dominate the leaderboard.
                   </p>
                 </div>
 
@@ -185,18 +163,18 @@ export default function LeaguesPage() {
                   <div className="flex gap-12">
                     <div>
                       <span className="block text-white/40 uppercase text-[10px] tracking-widest mb-1" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Entry Fee</span>
-                      <span className="text-2xl font-black" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{featured.entryFee}</span>
+                      <span className="text-2xl font-black" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{formatEntryFee(featured.entryFee)}</span>
                     </div>
                     <div>
                       <span className="block text-white/40 uppercase text-[10px] tracking-widest mb-1" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Prize Pool</span>
-                      <span className="text-2xl font-black text-[#D2FF00]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{featured.prizePool}</span>
+                      <span className="text-2xl font-black text-[#D2FF00]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{formatPrizePool(featured.prizePoolMist)}</span>
                     </div>
                     <div>
                       <span className="block text-white/40 uppercase text-[10px] tracking-widest mb-1" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Participants</span>
-                      <span className="text-2xl font-black" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{featured.slots}/{featured.maxSlots}</span>
+                      <span className="text-2xl font-black" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{featured.currentEntrants}/{featured.maxEntrants}</span>
                     </div>
                   </div>
-                  <Link href={`/leagues/${featured.id}`}>
+                  <Link href={`/leagues/${featured.objectId}`}>
                     <button
                       className="bg-white text-black px-10 py-4 font-black uppercase tracking-tighter group-hover:bg-[#D2FF00] transition-all"
                       style={{ fontFamily: "'Space Grotesk', sans-serif" }}
@@ -208,7 +186,7 @@ export default function LeaguesPage() {
 
                 <div className="absolute -bottom-20 -right-20 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
                   <span className="text-[200px] font-black italic text-white select-none" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                    {featured.sport === "Basketball" ? "🏀" : featured.sport === "Soccer" ? "⚽" : featured.sport === "F1" ? "🏎" : "🏆"}
+                    {featured.sport === "NBA" ? "🏀" : featured.sport === "SOCCER" ? "⚽" : "🏆"}
                   </span>
                 </div>
               </div>
@@ -216,59 +194,62 @@ export default function LeaguesPage() {
 
             {/* Side Cards */}
             <div className="md:col-span-4 space-y-6">
-              {sideCards.map((league) => (
-                <div key={league.id} className="bg-[#2a2a2a] p-6 group hover:bg-[#353535] transition-all">
-                  <div className="flex justify-between items-start mb-6">
-                    <span className="bg-[#353535] text-white/60 px-2 py-1 text-[10px] font-bold uppercase tracking-widest" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                      {league.tag}
-                    </span>
-                    <span className="text-[#D2FF00] font-bold text-xs" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                      {league.timeLeft}
-                    </span>
-                  </div>
-                  <h3 className="text-2xl font-bold tracking-tight mb-4" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                    {league.name}
-                  </h3>
-                  <div className="space-y-4 mb-6">
-                    <div className="w-full bg-[#0e0e0e] h-1">
-                      <div className="bg-[#D2FF00] h-full" style={{ width: `${league.fillPct}%` }} />
+              {sideCards.map((league) => {
+                const fillPct = league.maxEntrants > 0 ? Math.round((league.currentEntrants / league.maxEntrants) * 100) : 0;
+                return (
+                  <div key={league.objectId} className="bg-[#2a2a2a] p-6 group hover:bg-[#353535] transition-all">
+                    <div className="flex justify-between items-start mb-6">
+                      <span className="bg-[#353535] text-white/60 px-2 py-1 text-[10px] font-bold uppercase tracking-widest" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {league.sport}
+                      </span>
+                      <span className="text-[#D2FF00] font-bold text-xs" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {formatTimeLeft(league.endTimeMs, league.status)}
+                      </span>
                     </div>
-                    <div className="flex justify-between items-center text-xs uppercase tracking-widest" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                      <span className="text-white/40">Joined: {league.slots}/{league.maxSlots}</span>
-                      <span className="text-white">{league.entryFee}</span>
+                    <h3 className="text-2xl font-bold tracking-tight mb-4" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                      {league.name}
+                    </h3>
+                    <div className="space-y-4 mb-6">
+                      <div className="w-full bg-[#0e0e0e] h-1">
+                        <div className="bg-[#D2FF00] h-full" style={{ width: `${fillPct}%` }} />
+                      </div>
+                      <div className="flex justify-between items-center text-xs uppercase tracking-widest" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                        <span className="text-white/40">Joined: {league.currentEntrants}/{league.maxEntrants}</span>
+                        <span className="text-white">{formatEntryFee(league.entryFee)}</span>
+                      </div>
                     </div>
+                    <Link href={`/leagues/${league.objectId}`}>
+                      <button
+                        className="w-full border border-[#444933]/30 py-3 font-bold uppercase text-xs tracking-widest hover:bg-white hover:text-black transition-all"
+                        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                      >
+                        Join Now
+                      </button>
+                    </Link>
                   </div>
-                  <Link href={`/leagues/${league.id}`}>
-                    <button
-                      className="w-full border border-[#444933]/30 py-3 font-bold uppercase text-xs tracking-widest hover:bg-white hover:text-black transition-all"
-                      style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                    >
-                      Join Now
-                    </button>
-                  </Link>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Bottom Row Cards */}
             {bottomCards.map((league) => (
-              <div key={league.id} className="md:col-span-4 bg-[#1b1b1b] p-6 relative overflow-hidden group border-l-4 border-[#D2FF00]/30 hover:border-[#D2FF00] transition-all">
+              <div key={league.objectId} className="md:col-span-4 bg-[#1b1b1b] p-6 relative overflow-hidden group border-l-4 border-[#D2FF00]/30 hover:border-[#D2FF00] transition-all">
                 <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#afd500] mb-2 block" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                  {league.tag}
+                  {league.sport}
                 </span>
                 <h3 className="text-2xl font-black italic tracking-tighter mb-3" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
                   {league.name}
                 </h3>
                 <div className="flex items-center gap-4 text-sm text-white/60 mb-6">
-                  <span>{league.maxSlots} Slots</span>
-                  <span>{league.timeLeft}</span>
+                  <span>{league.maxEntrants} Slots</span>
+                  <span>{formatTimeLeft(league.endTimeMs, league.status)}</span>
                 </div>
                 <div className="bg-[#2a2a2a] p-4 flex justify-between items-center">
                   <div>
                     <span className="text-[10px] uppercase text-white/40 block">Prize Pool</span>
-                    <span className="text-lg font-bold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{league.prizePool}</span>
+                    <span className="text-lg font-bold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{formatPrizePool(league.prizePoolMist)}</span>
                   </div>
-                  <Link href={`/leagues/${league.id}`}>
+                  <Link href={`/leagues/${league.objectId}`}>
                     <button
                       className="bg-white text-black px-6 py-2 font-black text-xs uppercase italic active:scale-95 transition-all hover:bg-[#D2FF00]"
                       style={{ fontFamily: "'Space Grotesk', sans-serif" }}

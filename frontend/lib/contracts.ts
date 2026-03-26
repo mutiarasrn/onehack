@@ -4,6 +4,7 @@
  * or null if the package is not yet deployed (demo/mock mode).
  */
 import { Transaction } from "@mysten/sui/transactions";
+import { bcs } from "@mysten/sui/bcs";
 import { PACKAGE_ID, SCORE_BOARD_ID } from "./onechain";
 import ADDRESSES from "./contract-addresses.json";
 
@@ -45,13 +46,13 @@ export function buildCreateLeagueTx(args: CreateLeagueArgs): Transaction | null 
     target: `${PACKAGE_ID}::league_manager::create_league`,
     arguments: [
       tx.object(CONTRACT_IDS.adminCapId),
-      tx.pure.vector("u8", strBytes(args.name)),
-      tx.pure.vector("u8", strBytes(args.sport)),
-      tx.pure.u64(args.entryFee),
-      tx.pure.u64(args.maxEntrants),
-      tx.pure.u64(args.startTimeMs),
-      tx.pure.u64(args.durationMs),
-      tx.pure.vector("u64", args.prizeSplits),
+      tx.pure(bcs.vector(bcs.u8()).serialize(strBytes(args.name))),
+      tx.pure(bcs.vector(bcs.u8()).serialize(strBytes(args.sport))),
+      tx.pure(bcs.u64().serialize(args.entryFee)),
+      tx.pure(bcs.u64().serialize(args.maxEntrants)),
+      tx.pure(bcs.u64().serialize(args.startTimeMs)),
+      tx.pure(bcs.u64().serialize(args.durationMs)),
+      tx.pure(bcs.vector(bcs.u64()).serialize(args.prizeSplits)),
     ],
   });
   return tx;
@@ -106,9 +107,62 @@ export function buildSubmitTeamTx(
   tx.moveCall({
     target: `${PACKAGE_ID}::fantasy_team::submit_team`,
     arguments: [
-      tx.pure.id(leagueObjectId),
-      tx.pure.vector("u64", athleteTokenIds),
+      tx.pure(bcs.Address.serialize(leagueObjectId)),
+      tx.pure(bcs.vector(bcs.u64()).serialize(athleteTokenIds)),
     ],
+  });
+  return tx;
+}
+
+// ─── Marketplace ───────────────────────────────────────────────────────────
+
+/** List an AthleteNFT for sale at a fixed OCT price (in MIST). */
+export function buildListTx(
+  nftObjectId: string,
+  priceMist: number
+): Transaction | null {
+  if (!deployed) return null;
+
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${PACKAGE_ID}::marketplace::list`,
+    arguments: [
+      tx.object(nftObjectId),
+      tx.pure(bcs.u64().serialize(priceMist)),
+    ],
+  });
+  return tx;
+}
+
+/** Buy a listed AthleteNFT — splits payment from the user's gas coin. */
+export function buildBuyTx(
+  listingObjectId: string,
+  priceMist: number
+): Transaction | null {
+  if (!deployed) return null;
+
+  const tx = new Transaction();
+  const [payment] = tx.splitCoins(tx.gas, [priceMist]);
+  tx.moveCall({
+    target: `${PACKAGE_ID}::marketplace::buy`,
+    arguments: [
+      tx.object(listingObjectId),
+      payment,
+    ],
+  });
+  return tx;
+}
+
+/** Cancel a listing and reclaim the NFT. */
+export function buildDelistTx(
+  listingObjectId: string
+): Transaction | null {
+  if (!deployed) return null;
+
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${PACKAGE_ID}::marketplace::delist`,
+    arguments: [tx.object(listingObjectId)],
   });
   return tx;
 }

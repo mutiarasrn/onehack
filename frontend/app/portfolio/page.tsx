@@ -2,10 +2,8 @@
 
 import { useCurrentAccount, ConnectButton } from "@mysten/dapp-kit";
 import { Navbar } from "@/components/layout/Navbar";
-import { MOCK_ATHLETES } from "@/lib/athletes";
 import { formatAddress } from "@/lib/utils";
-
-const MY_ATHLETES = MOCK_ATHLETES.filter((a) => a.rarity >= 1).slice(0, 8);
+import { useOwnedAthletes } from "@/hooks/useAthletes";
 
 const RARITY_BADGE: Record<number, { label: string; style: string }> = {
   0: { label: "Common", style: "bg-white/20 backdrop-blur text-white" },
@@ -36,6 +34,7 @@ export default function PortfolioPage() {
   const account = useCurrentAccount();
   const address = account?.address;
   const isConnected = !!account;
+  const { athletes: MY_ATHLETES, loading: athletesLoading } = useOwnedAthletes();
 
   if (!isConnected) {
     return (
@@ -51,6 +50,12 @@ export default function PortfolioPage() {
 
   const totalValue = MY_ATHLETES.reduce((sum, a) => sum + a.price, 0);
   const totalEarned = HISTORY.reduce((sum, h) => sum + parseFloat(h.reward), 0).toFixed(2);
+  if (athletesLoading) return (
+    <div className="min-h-screen bg-[#131313] text-[#e2e2e2] flex items-center justify-center pt-20">
+      <Navbar />
+      <p className="text-white/40 text-lg">Loading your athletes from chain...</p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#131313] text-[#e2e2e2]" style={{ fontFamily: "'Inter', sans-serif" }}>

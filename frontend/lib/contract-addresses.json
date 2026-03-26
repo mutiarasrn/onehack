@@ -1,8 +1,10 @@
 {
-  "_comment": "Populated by move_contracts/scripts/deploy.sh after deployment",
-  "packageId": "",
-  "scoreBoardId": "",
-  "oracleCapId": "",
-  "network": "testnet",
-  "rpc": "https://rpc-testnet.onelabs.cc:443"
+  "packageId":      "0x877c71292a91f4ab41f7e767ba2f653cf76fb31f291d851f3b975f7edfdcb7c9",
+  "scoreBoardId":   "0x0401c41185f29f1b689b0c319ca96eb723b990ddc01ccc37764efec799f4ac7f",
+  "tokenCounterId": "0x40e1b5907d0f1cf721ef3ab78d551368b740c8dae44a5a12f1e67138275524a0",
+  "adminCapId":     "0x48a8eaa6760f5671a7667df8b3cef6bafc0ffcd432355206043638daacc9d994",
+  "oracleCapId":    "0x68a580f014a4ffb5cb4404359cb5d5956f249d7098be6f5e3a916cf9124a0a9a",
+  "minterCapId":    "0xa03e222c45ac6b20926341859ee095ef3da4a6e30f67fce930e2e414d8137d5f",
+  "network":        "testnet",
+  "rpc":            "https://rpc-testnet.onelabs.cc:443"
 }

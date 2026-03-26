@@ -8,6 +8,7 @@
 import { SuiClient } from "@mysten/sui/client";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { Transaction } from "@mysten/sui/transactions";
+import { bcs } from "@mysten/sui/bcs";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
 import * as path from "path";
@@ -85,8 +86,9 @@ function simulateScoreUpdate(): { ids: bigint[]; points: bigint[] } {
   const points: bigint[] = [];
 
   for (const [tokenId, athlete] of Object.entries(ATHLETES)) {
-    const variance = Math.floor(Math.random() * 12) - 2;
-    const bigPlay = Math.random() < 0.05 ? Math.floor(Math.random() * 20) : 0;
+    const scale = athlete.baseScore / 50;
+    const variance = Math.floor((Math.random() * 12 - 2) * scale);
+    const bigPlay = Math.random() < 0.05 ? Math.floor(Math.random() * 20 * scale) : 0;
     const increment = Math.max(0, variance + bigPlay);
     athlete.currentScore += increment;
 
@@ -121,11 +123,19 @@ async function pushScores() {
       arguments: [
         tx.object(ORACLE_CAP_ID),
         tx.object(SCORE_BOARD_ID),
-        tx.pure.u64(CONTEST_ID),
-        tx.pure.vector("u64", ids.map((n) => Number(n))),
-        tx.pure.vector("u64", points.map((n) => Number(n))),
+        tx.pure(bcs.u64().serialize(CONTEST_ID)),
+        tx.pure(bcs.vector(bcs.u64()).serialize(ids.map((n) => Number(n)))),
+        tx.pure(bcs.vector(bcs.u64()).serialize(points.map((n) => Number(n)))),
       ],
     });
+
+    tx.setGasBudget(10000000);
+
+    // Fetch a gas coin dynamically
+    const coins = await client.getCoins({ owner: keypair.toSuiAddress(), coinType: "0x2::oct::OCT" });
+    if (!coins.data.length) throw new Error("No gas coins found in wallet");
+    const gasCoin = coins.data[0];
+    tx.setGasPayment([{ objectId: gasCoin.coinObjectId, version: gasCoin.version, digest: gasCoin.digest }]);
 
     const result = await client.signAndExecuteTransaction({
       signer: keypair,
@@ -134,11 +144,13 @@ async function pushScores() {
 
     console.log(`[Oracle] Scores pushed — tx: ${result.digest}`);
 
-    const top = Object.entries(ATHLETES)
-      .sort((a, b) => b[1].currentScore - a[1].currentScore)
-      .slice(0, 3);
-    console.log("Top performers:");
-    top.forEach(([, a], i) => console.log(`  ${i + 1}. ${a.name}: ${a.currentScore} pts`));
+    const allAthletes = Object.entries(ATHLETES);
+    const topNBA = allAthletes.filter(([, a]) => a.sport === "NBA").sort((a, b) => b[1].currentScore - a[1].currentScore).slice(0, 3);
+    const topSoccer = allAthletes.filter(([, a]) => a.sport === "SOCCER").sort((a, b) => b[1].currentScore - a[1].currentScore).slice(0, 3);
+    console.log("Top NBA:");
+    topNBA.forEach(([, a], i) => console.log(`  ${i + 1}. ${a.name}: ${a.currentScore} pts`));
+    console.log("Top Soccer:");
+    topSoccer.forEach(([, a], i) => console.log(`  ${i + 1}. ${a.name}: ${a.currentScore} pts`));
   } catch (err) {
     console.error("[Oracle] Failed to push scores:", (err as Error).message);
   }

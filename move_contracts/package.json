@@ -3,15 +3,16 @@
   "version": "1.0.0",
   "scripts": {
     "seed": "ts-node scripts/seed-athletes.ts",
+    "list": "ts-node scripts/list-athletes.ts",
     "deploy": "bash scripts/deploy.sh"
   },
   "dependencies": {
-    "@mysten/sui": "^1.0.0",
+    "@mysten/sui": "^1.45.2",
     "dotenv": "^16.4.0"
   },
   "devDependencies": {
-    "typescript": "^5.4.0",
     "@types/node": "^20.12.0",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
   }
 }

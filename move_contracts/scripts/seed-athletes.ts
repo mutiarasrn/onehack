@@ -5,6 +5,7 @@
 import { getFullnodeUrl, SuiClient } from "@mysten/sui/client";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { Transaction } from "@mysten/sui/transactions";
+import { bcs } from "@mysten/sui/bcs";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -65,42 +66,15 @@ async function main() {
   const sender = keypair.toSuiAddress();
   console.log("Deployer address:", sender);
 
-  // Fetch MinterCap and TokenCounter object IDs owned by deployer
-  const objects = await client.getOwnedObjects({
-    owner: sender,
-    filter: { Package: PACKAGE_ID },
-    options: { showType: true },
-  });
-
-  const minterCapId = objects.data.find((o) =>
-    o.data?.type?.includes("::athlete_nft::MinterCap")
-  )?.data?.objectId;
-
-  const counterObj = await client.queryEvents({
-    query: { MoveEventType: `${PACKAGE_ID}::athlete_nft::AthleteMinted` },
-  });
-
-  // Get TokenCounter from shared objects (stored separately)
-  const sharedObjs = await client.queryEvents({
-    query: { Package: PACKAGE_ID },
-  });
+  const minterCapId: string = ADDRESSES.minterCapId;
+  const tokenCounterId: string = ADDRESSES.tokenCounterId;
 
   if (!minterCapId) {
-    console.error("MinterCap not found. Did you deploy the package with this wallet?");
+    console.error("minterCapId not found in contract-addresses.json");
     process.exit(1);
   }
-
-  // Fetch the shared TokenCounter
-  const counterEvents = await client.queryEvents({ query: { Package: PACKAGE_ID } });
-  // The TokenCounter is a shared object — query it by type
-  const counters = await client.queryObjects({
-    filter: { StructType: `${PACKAGE_ID}::athlete_nft::TokenCounter` },
-    options: { showContent: true },
-  });
-
-  const tokenCounterId = counters.data[0]?.data?.objectId;
   if (!tokenCounterId) {
-    console.error("TokenCounter shared object not found.");
+    console.error("tokenCounterId not found in contract-addresses.json");
     process.exit(1);
   }
 
@@ -116,16 +90,28 @@ async function main() {
       arguments: [
         tx.object(minterCapId),
         tx.object(tokenCounterId),
-        tx.pure.vector("u8", Array.from(Buffer.from(a.name))),
-        tx.pure.vector("u8", Array.from(Buffer.from(a.sport))),
-        tx.pure.vector("u8", Array.from(Buffer.from(a.position))),
-        tx.pure.vector("u8", Array.from(Buffer.from(a.imageUri))),
+        tx.pure(bcs.vector(bcs.u8()).serialize(Array.from(Buffer.from(a.name)))),
+        tx.pure(bcs.vector(bcs.u8()).serialize(Array.from(Buffer.from(a.sport)))),
+        tx.pure(bcs.vector(bcs.u8()).serialize(Array.from(Buffer.from(a.position)))),
+        tx.pure(bcs.vector(bcs.u8()).serialize(Array.from(Buffer.from(a.imageUri)))),
         tx.pure.u8(a.rarity),
         tx.pure.u64(a.baseScore),
         tx.pure.address(sender),
       ],
     });
   }
+
+  tx.setGasBudget(100_000_000);
+
+  // Fetch gas coin dynamically
+  const coins = await client.getCoins({ owner: sender });
+  if (!coins.data.length) throw new Error("No gas coins found");
+  const gas = coins.data[0];
+  tx.setGasPayment([{
+    objectId: gas.coinObjectId,
+    version: gas.version,
+    digest: gas.digest,
+  }]);
 
   const result = await client.signAndExecuteTransaction({
     signer: keypair,

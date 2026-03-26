@@ -91,8 +91,19 @@ npm run start
 | Gold | 1.6x |
 | Legendary | 2.0x |
 
+## Deployed Contracts (Testnet)
+
+| | |
+|---|---|
+| **Package ID** | `0x26ef263d4cb568d6c2364d7444ab07fa30826d81ecb5e21a3e9e16de5d3eb6a1` |
+| **ScoreBoard** | `0xdeec81b6e9889cfd2d586d20da6f8f1eb7d6a3ae3336173bbd22ed67c1a2b14f` |
+| **TokenCounter** | `0xd96c296e3aa2e83f1c6a42e509dbe339f83be2b9f51054678d82e591a7d258f7` |
+| **AdminCap** | `0x137f38b14cab77b0d063662cf6afd02b1497c52cb7c73e07ac2bbe1bc7f1f3fd` |
+| **Deploy Tx** | `GLz3WYQMZ86ykzxxhcTGnEuwXGzuh2daAoiE5pgFkCXw` |
+| **Seed Tx** | `4dGTGvPRQK7sFw23DefwyoHKHGYxYficYsjpTbJtFcB5` |
+
 ## OneChain Network (Testnet)
 
 - RPC: `https://rpc-testnet.onelabs.cc:443`
 - Faucet: `POST https://faucet-testnet.onelabs.cc/v1/gas`
-- CLI: `one client publish --gas-budget 5000000`
+- CLI: `one client publish --gas-budget 100000000`
