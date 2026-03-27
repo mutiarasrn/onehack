@@ -31,18 +31,20 @@ const SLOT_DEFS: Record<string, { pos: string; label: string }[]> = {
   ],
 };
 
-// Detect sport and entry fee from query params (passed by league detail page)
-function useLeagueParams(_leagueId: string): { sport: "NBA" | "SOCCER"; entryFeeMist: number } {
+// Detect sport, entry fee, and status from query params (passed by league detail page)
+function useLeagueParams(_leagueId: string): { sport: "NBA" | "SOCCER"; entryFeeMist: number; statusParam: number | null } {
   if (typeof window !== "undefined") {
     const p = new URLSearchParams(window.location.search);
     const s = p.get("sport");
     const fee = parseInt(p.get("entryFee") ?? "0", 10);
+    const status = p.get("status");
     return {
       sport: s === "SOCCER" ? "SOCCER" : "NBA",
       entryFeeMist: isNaN(fee) ? 0 : fee,
+      statusParam: status !== null ? parseInt(status, 10) : null,
     };
   }
-  return { sport: "NBA", entryFeeMist: 0 };
+  return { sport: "NBA", entryFeeMist: 0, statusParam: null };
 }
 
 const POSITION_FILTERS: Record<string, string[]> = {
@@ -73,7 +75,7 @@ export default function TeamBuilderPage() {
   const { leagueId } = useParams();
   const router = useRouter();
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
-  const { sport, entryFeeMist } = useLeagueParams(String(leagueId));
+  const { sport, entryFeeMist, statusParam } = useLeagueParams(String(leagueId));
   const slots = SLOT_DEFS[sport] || SLOT_DEFS.NBA;
 
   const [selectedAthletes, setSelectedAthletes] = useState<(Athlete | null)[]>(
@@ -82,6 +84,7 @@ export default function TeamBuilderPage() {
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
   const [posFilter, setPosFilter] = useState("All");
   const [submitting, setSubmitting] = useState(false);
+  const [leagueStatus, setLeagueStatus] = useState<number | null>(null);
 
   const countdown = useCountdown(4 * 3600 + 22 * 60 + 15);
 
@@ -91,6 +94,19 @@ export default function TeamBuilderPage() {
   const { tokenIds: existingTokenIds, loading: loadingExisting } = useExistingTeam(
     typeof leagueId === "string" ? leagueId : ""
   );
+
+  // Redirect immediately if league is not open (status passed via query param)
+  useEffect(() => {
+    if (statusParam === null) return;
+    if (statusParam === 1) {
+      toast.error("This league is already active — registration closed");
+      router.replace(`/leagues/${leagueId}`);
+    } else if (statusParam === 2) {
+      toast.error("This league has already finished");
+      router.replace(`/leagues/${leagueId}`);
+    }
+    setLeagueStatus(statusParam);
+  }, [statusParam]);
 
   // Pre-populate slots when existing team is loaded
   useEffect(() => {
@@ -147,6 +163,10 @@ export default function TeamBuilderPage() {
   }
 
   async function handleSubmit() {
+    if (leagueStatus !== null && leagueStatus !== 0) {
+      toast.error("This league is no longer accepting entries");
+      return;
+    }
     if (filledCount < slots.length) {
       toast.error(`Fill all ${slots.length} roster slots first`);
       return;

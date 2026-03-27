@@ -30,7 +30,7 @@ interface LeaderboardEntry {
   totalScore: number;
 }
 
-const TABS = ["Overview", "Bets", "Rosters"];
+const TABS = ["Overview", "Rosters"];
 
 function formatTimeLeft(endTimeMs: number, status: number): string {
   if (status === 2) return "FINISHED";
@@ -219,7 +219,7 @@ export default function LeagueDetailPage() {
               {league.status === 0 && !hasJoined ? (
                 <div className="flex flex-wrap gap-4 items-center">
                   <button
-                    onClick={() => router.push(`/leagues/${leagueId}/team?sport=${league.sport}&entryFee=${entryFeeMist}`)}
+                    onClick={() => router.push(`/leagues/${leagueId}/team?sport=${league.sport}&entryFee=${entryFeeMist}&status=${league.status}`)}
                     className="px-10 py-4 font-black uppercase tracking-tight text-[#171e00] active:scale-95 transition-all"
                     style={{ background: "linear-gradient(135deg, #D2FF00 0%, #afd500 100%)", fontFamily: "'Space Grotesk', sans-serif" }}
                   >
@@ -234,14 +234,30 @@ export default function LeagueDetailPage() {
                       Joined
                     </span>
                   </div>
-                  <Link href={`/leagues/${leagueId}/team?sport=${league.sport}&entryFee=${entryFeeMist}`}>
-                    <button
-                      className="px-8 py-3 font-bold uppercase tracking-tight text-sm text-white border border-white/20 hover:border-white transition-all"
-                      style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                    >
-                      Edit Team →
-                    </button>
-                  </Link>
+                  {league.status === 0 && (
+                    <Link href={`/leagues/${leagueId}/team?sport=${league.sport}&entryFee=${entryFeeMist}&status=${league.status}`}>
+                      <button
+                        className="px-8 py-3 font-bold uppercase tracking-tight text-sm text-white border border-white/20 hover:border-white transition-all"
+                        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                      >
+                        Edit Team →
+                      </button>
+                    </Link>
+                  )}
+                </div>
+              ) : league.status === 2 ? (
+                <div className="flex items-center gap-2 border border-white/10 bg-white/5 px-5 py-3">
+                  <span className="material-symbols-outlined text-white/30 text-base">lock</span>
+                  <span className="text-white/30 font-bold text-sm uppercase tracking-widest" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                    League Finished
+                  </span>
+                </div>
+              ) : league.status === 1 ? (
+                <div className="flex items-center gap-2 border border-white/10 bg-white/5 px-5 py-3">
+                  <span className="material-symbols-outlined text-white/30 text-base">lock</span>
+                  <span className="text-white/30 font-bold text-sm uppercase tracking-widest" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                    Registration Closed
+                  </span>
                 </div>
               ) : null}
             </div>
@@ -391,18 +407,7 @@ export default function LeagueDetailPage() {
               </div>
             )}
 
-            {tab === "Bets" && (
-              <div className="bg-[#1b1b1b] p-8">
-                <div className="text-center py-16">
-                  <span className="material-symbols-outlined text-6xl text-white/10 block mb-4">casino</span>
-                  <p className="text-white/40 text-sm uppercase tracking-widest" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                    Betting coming soon
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {tab === "Rosters" && (
+{tab === "Rosters" && (
               <div className="bg-[#1b1b1b] p-8">
                 {league.entrants.length === 0 ? (
                   <div className="text-center py-16">
