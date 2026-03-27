@@ -55,7 +55,11 @@ export default function LeaguesPage() {
   const { isAdmin } = useIsAdmin();
 
   const filtered = leagues.filter((l) => {
-    const statusMatch = l.status === STATUS_MAP[tab];
+    const now = Date.now();
+    const isExpired = l.status === 0 && l.endTimeMs < now;
+    const isActive = l.status === 0 && l.startTimeMs <= now && l.endTimeMs > now;
+    const effectiveStatus = isExpired ? 2 : isActive ? 1 : l.status;
+    const statusMatch = effectiveStatus === STATUS_MAP[tab];
     const sportMatch = sportFilter === "All Sports" || l.sport === sportFilter;
     return statusMatch && sportMatch;
   });

@@ -5,6 +5,7 @@
   "adminCapId":     "0x48a8eaa6760f5671a7667df8b3cef6bafc0ffcd432355206043638daacc9d994",
   "oracleCapId":    "0x68a580f014a4ffb5cb4404359cb5d5956f249d7098be6f5e3a916cf9124a0a9a",
   "minterCapId":    "0xa03e222c45ac6b20926341859ee095ef3da4a6e30f67fce930e2e414d8137d5f",
+  "demoLeagueId":   "0x2357e1d37f7e7229f0313cf8bc228d62f6765c2283b8bcf3ac0d6263b962c7c6",
   "network":        "testnet",
   "rpc":            "https://rpc-testnet.onelabs.cc:443"
 }

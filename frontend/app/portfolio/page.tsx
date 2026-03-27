@@ -1,42 +1,56 @@
 "use client";
 
 import { useCurrentAccount, ConnectButton } from "@mysten/dapp-kit";
+import { useEffect, useState } from "react";
 import { Navbar } from "@/components/layout/Navbar";
-import { formatAddress } from "@/lib/utils";
 import { useOwnedAthletes } from "@/hooks/useAthletes";
+import Link from "next/link";
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 
 const RARITY_BADGE: Record<number, { label: string; style: string }> = {
-  0: { label: "Common", style: "bg-white/20 backdrop-blur text-white" },
-  1: { label: "Rare", style: "bg-white/20 backdrop-blur text-white" },
-  2: { label: "Gold", style: "bg-[#FFD700] text-black" },
+  0: { label: "Common",    style: "bg-white/20 backdrop-blur text-white" },
+  1: { label: "Rare",      style: "bg-blue-500/80 text-white" },
+  2: { label: "Gold",      style: "bg-[#FFD700] text-black" },
   3: { label: "Legendary", style: "bg-[#D2FF00] text-[#171e00]" },
 };
 
-const HISTORY = [
-  {
-    id: 1, league: "Grand Prix Elite Series", date: "May 12, 2024",
-    rank: 4, reward: "2.50 ETH", status: "claimable",
-    icon: "emoji_events", iconBg: "bg-[#D2FF00]", iconColor: "text-[#171e00]",
-  },
-  {
-    id: 2, league: "Sprint Masters Invitational", date: "May 08, 2024",
-    rank: 114, reward: "0.00 ETH", status: "claimed",
-    icon: "sports_score", iconBg: "bg-[#353535]", iconColor: "text-white/40",
-  },
-  {
-    id: 3, league: "Velocity Pro Series", date: "May 01, 2024",
-    rank: 12, reward: "0.45 ETH", status: "view",
-    icon: "military_tech", iconBg: "bg-[#D2FF00]/20", iconColor: "text-[#D2FF00]",
-  },
-];
+interface JoinedLeague {
+  leagueId: string;
+  name: string;
+  sport: string;
+  status: number;
+  entryFee: string;
+  prizePool: string;
+  prizeSplits: number[];
+  entrants: string[];
+}
 
 export default function PortfolioPage() {
   const account = useCurrentAccount();
-  const address = account?.address;
-  const isConnected = !!account;
-  const { athletes: MY_ATHLETES, loading: athletesLoading } = useOwnedAthletes();
+  const { athletes, loading: athletesLoading } = useOwnedAthletes();
+  const [joinedLeagues, setJoinedLeagues] = useState<JoinedLeague[]>([]);
+  const [loadingLeagues, setLoadingLeagues] = useState(true);
 
-  if (!isConnected) {
+  useEffect(() => {
+    if (!account?.address) { setLoadingLeagues(false); return; }
+    async function fetchLeagues() {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/leagues`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const all: JoinedLeague[] = data.leagues ?? [];
+        setJoinedLeagues(all.filter((l) => l.entrants.includes(account!.address)));
+      } catch (e) {
+        console.error("Failed to fetch leagues:", e);
+      } finally {
+        setLoadingLeagues(false);
+      }
+    }
+    fetchLeagues();
+  }, [account?.address]);
+
+  if (!account) {
     return (
       <div className="min-h-screen bg-[#131313] text-[#e2e2e2] flex flex-col items-center justify-center gap-6 pt-20" style={{ fontFamily: "'Inter', sans-serif" }}>
         <Navbar />
@@ -48,14 +62,26 @@ export default function PortfolioPage() {
     );
   }
 
-  const totalValue = MY_ATHLETES.reduce((sum, a) => sum + a.price, 0);
-  const totalEarned = HISTORY.reduce((sum, h) => sum + parseFloat(h.reward), 0).toFixed(2);
-  if (athletesLoading) return (
-    <div className="min-h-screen bg-[#131313] text-[#e2e2e2] flex items-center justify-center pt-20">
-      <Navbar />
-      <p className="text-white/40 text-lg">Loading your athletes from chain...</p>
-    </div>
-  );
+  if (athletesLoading) {
+    return (
+      <div className="min-h-screen bg-[#131313] text-[#e2e2e2] flex items-center justify-center pt-20">
+        <Navbar />
+        <p className="text-white/40 text-lg">Loading your portfolio from chain...</p>
+      </div>
+    );
+  }
+
+  const totalValueMist = athletes.reduce((sum, a) => sum + (a.price ?? 0), 0);
+  const totalValueOCT = (totalValueMist / 1_000_000_000).toFixed(2);
+
+  const activeLeagues = joinedLeagues.filter((l) => l.status === 0 || l.status === 1);
+  const finishedLeagues = joinedLeagues.filter((l) => l.status === 2);
+
+  function getStatusLabel(status: number) {
+    if (status === 0) return { label: "Open", color: "text-[#D2FF00]" };
+    if (status === 1) return { label: "Live", color: "text-blue-400" };
+    return { label: "Finished", color: "text-white/40" };
+  }
 
   return (
     <div className="min-h-screen bg-[#131313] text-[#e2e2e2]" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -68,59 +94,57 @@ export default function PortfolioPage() {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
             <div>
               <span className="text-[#D2FF00] uppercase tracking-[0.2em] text-xs font-bold mb-2 block" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                Executive Overview
+                On-Chain Portfolio
               </span>
               <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-white leading-none" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
                 MY PORTFOLIO
               </h1>
             </div>
             <div className="bg-[#1b1b1b] px-6 py-4 border-l-4 border-[#D2FF00]">
-              <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1">Portfolio Health</p>
-              <p className="text-2xl font-bold text-[#D2FF00]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                +12.4% <span className="text-xs font-normal text-white/40">24H</span>
+              <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1">Wallet</p>
+              <p className="text-sm font-mono text-[#D2FF00]">
+                {account.address.slice(0, 10)}...{account.address.slice(-8)}
               </p>
             </div>
           </div>
 
           {/* Stats Bento */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {/* Main stat */}
+            {/* Collection Value */}
             <div className="md:col-span-2 bg-[#1b1b1b] p-8 flex flex-col justify-between relative overflow-hidden group">
               <div className="relative z-10">
                 <p className="text-xs uppercase tracking-[0.1em] text-white/50 mb-4" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Total Collection Value</p>
                 <h2 className="text-6xl font-bold text-white tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                  {totalValue.toLocaleString()} ONE
+                  {totalValueOCT} <span className="text-2xl text-white/40">OCT</span>
                 </h2>
-                <div className="mt-8 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#D2FF00]" style={{ fontVariationSettings: "'FILL' 1" }}>trending_up</span>
-                  <span className="text-[#D2FF00] font-bold">+4,230 ONE Today</span>
-                </div>
+                <p className="mt-4 text-white/30 text-sm">{athletes.length} athlete NFTs owned</p>
               </div>
               <div className="absolute right-0 bottom-0 opacity-10 translate-x-1/4 translate-y-1/4 group-hover:scale-110 transition-transform duration-500 pointer-events-none">
                 <span className="material-symbols-outlined text-[200px]" style={{ fontVariationSettings: "'wght' 700" }}>account_balance_wallet</span>
               </div>
             </div>
 
-            {/* Total earned */}
+            {/* Active Leagues */}
             <div className="bg-[#2a2a2a] p-8 flex flex-col justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.1em] text-white/50 mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Total Earned</p>
-                <h3 className="text-3xl font-bold text-[#D2FF00]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{totalEarned} ETH</h3>
+                <p className="text-xs uppercase tracking-[0.1em] text-white/50 mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Active Leagues</p>
+                <h3 className="text-5xl font-bold text-[#D2FF00]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                  {loadingLeagues ? "—" : activeLeagues.length}
+                </h3>
               </div>
-              <div className="w-full h-1 bg-[#353535] mt-4">
-                <div className="h-full bg-[#D2FF00]" style={{ width: "65%" }} />
-              </div>
-              <p className="text-[10px] text-white/40 mt-4 uppercase">Target: 5.00 ETH</p>
+              <p className="text-[10px] text-white/40 mt-4 uppercase tracking-widest">
+                {loadingLeagues ? "Loading..." : `${finishedLeagues.length} completed`}
+              </p>
             </div>
 
-            {/* Active athletes */}
+            {/* Athletes count */}
             <div className="bg-[#2a2a2a] p-8 flex flex-col justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.1em] text-white/50 mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Active Athletes</p>
-                <h3 className="text-3xl font-bold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{MY_ATHLETES.length}</h3>
+                <p className="text-xs uppercase tracking-[0.1em] text-white/50 mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Athletes Owned</p>
+                <h3 className="text-5xl font-bold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{athletes.length}</h3>
               </div>
               <div className="flex -space-x-3 mt-4">
-                {MY_ATHLETES.slice(0, 3).map((a) => (
+                {athletes.slice(0, 4).map((a) => (
                   <div key={a.id} className="w-10 h-10 rounded-full border-2 border-[#2a2a2a] overflow-hidden bg-[#353535]">
                     <img
                       src={a.imageUrl}
@@ -133,9 +157,11 @@ export default function PortfolioPage() {
                     />
                   </div>
                 ))}
-                <div className="w-10 h-10 rounded-full bg-[#353535] border-2 border-[#2a2a2a] flex items-center justify-center text-[10px] font-bold text-white/60">
-                  +{MY_ATHLETES.length - 3}
-                </div>
+                {athletes.length > 4 && (
+                  <div className="w-10 h-10 rounded-full bg-[#353535] border-2 border-[#2a2a2a] flex items-center justify-center text-[10px] font-bold text-white/60">
+                    +{athletes.length - 4}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -144,124 +170,140 @@ export default function PortfolioPage() {
         {/* Athletes Grid */}
         <section className="mb-24">
           <div className="flex items-center justify-between mb-10">
-            <h2 className="text-3xl font-bold tracking-tighter uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Active Athletes</h2>
-            <div className="flex gap-4">
-              <button className="bg-[#353535] px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/60 hover:text-white transition-colors" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Filters</button>
-              <button className="bg-[#353535] px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/60 hover:text-white transition-colors" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Market Value</button>
-            </div>
+            <h2 className="text-3xl font-bold tracking-tighter uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              My Athletes
+            </h2>
+            <Link href="/marketplace">
+              <button className="bg-[#D2FF00] text-[#171e00] px-6 py-2 text-xs font-black uppercase tracking-widest hover:opacity-90 transition-opacity" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                Browse Marketplace →
+              </button>
+            </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {MY_ATHLETES.slice(0, 8).map((athlete) => {
-              const badge = RARITY_BADGE[athlete.rarity];
-              const change = athlete.rarity >= 2 ? `+${(Math.random() * 5).toFixed(1)}%` : "--";
-              const changeColor = change === "--" ? "text-white/60" : "text-[#D2FF00]";
-              return (
-                <div key={athlete.id} className="bg-[#1b1b1b] group hover:bg-[#2a2a2a] transition-all duration-300">
-                  <div className="relative h-64 overflow-hidden">
-                    <img
-                      src={athlete.imageUrl}
-                      alt={athlete.name}
-                      className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500 group-hover:scale-105"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(athlete.name)}&backgroundColor=1b1b1b&textColor=D2FF00`;
-                      }}
-                    />
-                    <div className={`absolute top-4 right-4 px-2 py-1 text-[10px] font-black uppercase italic ${badge.style}`} style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                      {badge.label}
+          {athletes.length === 0 ? (
+            <div className="py-24 text-center bg-[#1b1b1b]">
+              <span className="material-symbols-outlined text-6xl text-white/10 block mb-4">sports_basketball</span>
+              <p className="text-white/40 text-sm uppercase tracking-widest mb-6" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                No athletes in your collection yet
+              </p>
+              <Link href="/marketplace">
+                <button className="bg-[#D2FF00] text-[#171e00] px-8 py-3 font-black uppercase tracking-widest text-sm" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                  Buy Athletes
+                </button>
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {athletes.map((athlete) => {
+                const badge = RARITY_BADGE[athlete.rarity];
+                const priceOCT = athlete.price ? (athlete.price / 1_000_000_000).toFixed(2) : "—";
+                return (
+                  <div key={athlete.id} className="bg-[#1b1b1b] group hover:bg-[#2a2a2a] transition-all duration-300">
+                    <div className="relative h-64 overflow-hidden">
+                      <img
+                        src={athlete.imageUrl}
+                        alt={athlete.name}
+                        className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500 group-hover:scale-105"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src =
+                            `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(athlete.name)}&backgroundColor=1b1b1b&textColor=D2FF00`;
+                        }}
+                      />
+                      <div className={`absolute top-4 right-4 px-2 py-1 text-[10px] font-black uppercase italic ${badge.style}`} style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {badge.label}
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <p className="text-[10px] text-[#D2FF00] uppercase tracking-widest mb-1" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {athlete.sport} · {athlete.position}
+                      </p>
+                      <h4 className="text-xl font-bold text-white mb-4" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {athlete.name.toUpperCase()}
+                      </h4>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-white/40 uppercase">Base Score</span>
+                        <span className="text-white font-mono font-bold">{athlete.baseScore} pts</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs mt-2">
+                        <span className="text-white/40 uppercase">Value</span>
+                        <span className="text-[#D2FF00] font-mono font-bold">{priceOCT} OCT</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="p-6">
-                    <p className="text-[10px] text-[#D2FF00] uppercase tracking-widest mb-1" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                      {athlete.sport} · {athlete.position}
-                    </p>
-                    <h4 className="text-xl font-bold text-white mb-4" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                      {athlete.name.toUpperCase()}
-                    </h4>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-white/40 uppercase">Floor Price</span>
-                      <span className="text-white font-mono font-bold">{athlete.price} ONE</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs mt-2">
-                      <span className="text-white/40 uppercase">Last Sale</span>
-                      <span className={`font-mono font-bold ${changeColor}`}>{change}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
-        {/* League History */}
+        {/* League Activity */}
         <section>
           <div className="flex items-center justify-between mb-10">
-            <h2 className="text-3xl font-bold tracking-tighter uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>League History</h2>
-            <span className="text-white/40 text-xs font-bold uppercase tracking-widest">Last 30 Days</span>
+            <h2 className="text-3xl font-bold tracking-tighter uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>My Leagues</h2>
+            <Link href="/leagues">
+              <span className="text-white/40 text-xs font-bold uppercase tracking-widest hover:text-[#D2FF00] transition-colors">Browse All →</span>
+            </Link>
           </div>
 
-          <div className="space-y-4">
-            {HISTORY.map((h) => (
-              <div
-                key={h.id}
-                className={`bg-[#1b1b1b] flex flex-col md:flex-row items-center gap-6 p-6 ${h.status === "claimed" ? "opacity-60" : ""}`}
-              >
-                <div className={`w-16 h-16 flex-shrink-0 ${h.iconBg} flex items-center justify-center`}>
-                  <span className={`material-symbols-outlined text-4xl ${h.iconColor}`} style={{ fontVariationSettings: "'wght' 700" }}>
-                    {h.icon}
-                  </span>
-                </div>
+          {loadingLeagues ? (
+            <div className="py-16 text-center text-white/30 text-sm">Loading leagues...</div>
+          ) : joinedLeagues.length === 0 ? (
+            <div className="py-24 text-center bg-[#1b1b1b]">
+              <span className="material-symbols-outlined text-6xl text-white/10 block mb-4">emoji_events</span>
+              <p className="text-white/40 text-sm uppercase tracking-widest mb-6" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                You haven't joined any leagues yet
+              </p>
+              <Link href="/leagues">
+                <button className="bg-[#D2FF00] text-[#171e00] px-8 py-3 font-black uppercase tracking-widest text-sm" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                  Join a League
+                </button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {joinedLeagues.map((l) => {
+                const { label, color } = getStatusLabel(l.status);
+                const prizePoolOCT = (Number(l.prizePool) / 1_000_000_000).toFixed(2);
+                const entryFeeOCT = Number(l.entryFee) === 0 ? "Free" : `${(Number(l.entryFee) / 1_000_000_000).toFixed(2)} OCT`;
+                const sportEmoji = l.sport === "NBA" ? "🏀" : l.sport === "SOCCER" ? "⚽" : "🏆";
+                return (
+                  <div key={l.leagueId} className="bg-[#1b1b1b] flex flex-col md:flex-row items-center gap-6 p-6">
+                    <div className="w-16 h-16 flex-shrink-0 bg-[#2a2a2a] flex items-center justify-center text-3xl">
+                      {sportEmoji}
+                    </div>
 
-                <div className="flex-grow text-center md:text-left">
-                  <p className={`text-[10px] uppercase tracking-widest mb-1 font-bold ${h.status === "claimed" ? "text-white/40" : "text-[#D2FF00]"}`} style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                    Completed · {h.date}
-                  </p>
-                  <h4 className="text-xl font-bold text-white uppercase tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                    {h.league}
-                  </h4>
-                </div>
+                    <div className="flex-grow text-center md:text-left">
+                      <p className={`text-[10px] uppercase tracking-widest mb-1 font-bold ${color}`} style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {label} · {l.sport}
+                      </p>
+                      <h4 className="text-xl font-bold text-white uppercase tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                        {l.name}
+                      </h4>
+                    </div>
 
-                <div className="flex flex-col items-center md:items-end gap-1">
-                  <span className="text-[10px] text-white/40 uppercase">Final Rank</span>
-                  <span className="text-2xl font-bold text-white leading-none" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>#{h.rank.toString().padStart(2, "0")}</span>
-                </div>
+                    <div className="flex flex-col items-center md:items-end gap-1">
+                      <span className="text-[10px] text-white/40 uppercase">Entry Fee</span>
+                      <span className="text-lg font-bold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{entryFeeOCT}</span>
+                    </div>
 
-                <div className="flex flex-col items-center md:items-end gap-1 border-x border-white/5 px-8">
-                  <span className="text-[10px] text-white/40 uppercase">Reward</span>
-                  <span className={`text-2xl font-bold leading-none ${h.status === "claimed" && h.reward === "0.00 ETH" ? "text-white/40" : "text-[#D2FF00]"}`} style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                    {h.reward}
-                  </span>
-                </div>
+                    <div className="flex flex-col items-center md:items-end gap-1 border-x border-white/5 px-8">
+                      <span className="text-[10px] text-white/40 uppercase">Prize Pool</span>
+                      <span className="text-lg font-bold text-[#D2FF00]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{prizePoolOCT} OCT</span>
+                    </div>
 
-                {h.status === "claimable" && (
-                  <button
-                    className="w-full md:w-auto text-[#171e00] px-8 py-3 font-bold uppercase tracking-tighter active:scale-95 transition-transform"
-                    style={{ background: "linear-gradient(135deg, #D2FF00 0%, #afd500 100%)", fontFamily: "'Space Grotesk', sans-serif" }}
-                  >
-                    Claim Prize
-                  </button>
-                )}
-                {h.status === "claimed" && (
-                  <button
-                    className="w-full md:w-auto bg-white/5 text-white/20 px-8 py-3 font-bold uppercase tracking-tighter cursor-not-allowed"
-                    disabled
-                    style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                  >
-                    Claimed
-                  </button>
-                )}
-                {h.status === "view" && (
-                  <button
-                    className="w-full md:w-auto bg-white/10 text-white px-8 py-3 font-bold uppercase tracking-tighter hover:bg-white/20 transition-colors"
-                    style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                  >
-                    View Details
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
+                    <Link href={`/leagues/${l.leagueId}`}>
+                      <button
+                        className="w-full md:w-auto bg-white/10 text-white px-8 py-3 font-bold uppercase tracking-tighter hover:bg-[#D2FF00] hover:text-[#171e00] transition-colors text-sm"
+                        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                      >
+                        View League →
+                      </button>
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
       </main>
 

@@ -4,15 +4,14 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSignAndExecuteTransaction, useCurrentAccount } from "@mysten/dapp-kit";
 import { Navbar } from "@/components/layout/Navbar";
-import { MOCK_ATHLETES, type Athlete, RARITY_NAMES } from "@/lib/athletes";
+import { type Athlete, RARITY_NAMES } from "@/lib/athletes";
+import { useOwnedAthletes } from "@/hooks/useAthletes";
+import { useExistingTeam } from "@/hooks/useExistingTeam";
 import { getMultiplier, formatScore } from "@/lib/utils";
-import { buildSubmitTeamTx } from "@/lib/contracts";
+import { buildSubmitTeamAndJoinFreeTx, buildSubmitTeamAndJoinTx, buildSubmitTeamTx } from "@/lib/contracts";
 import { toast } from "sonner";
 import Link from "next/link";
 
-const LEAGUE_OBJECT_IDS: Record<string, string> = {
-  "1": (process.env.NEXT_PUBLIC_DEMO_LEAGUE_ID as string) || "",
-};
 
 // Slot definitions per sport
 const SLOT_DEFS: Record<string, { pos: string; label: string }[]> = {
@@ -32,16 +31,18 @@ const SLOT_DEFS: Record<string, { pos: string; label: string }[]> = {
   ],
 };
 
-// Detect sport from the leagueId or default to NBA
-// For demo we default NBA. The real implementation would fetch league sport from chain.
-function useLeagueSport(leagueId: string): "NBA" | "SOCCER" {
-  // TODO: fetch from chain. For now use query param or default NBA.
+// Detect sport and entry fee from query params (passed by league detail page)
+function useLeagueParams(_leagueId: string): { sport: "NBA" | "SOCCER"; entryFeeMist: number } {
   if (typeof window !== "undefined") {
     const p = new URLSearchParams(window.location.search);
     const s = p.get("sport");
-    if (s === "SOCCER") return "SOCCER";
+    const fee = parseInt(p.get("entryFee") ?? "0", 10);
+    return {
+      sport: s === "SOCCER" ? "SOCCER" : "NBA",
+      entryFeeMist: isNaN(fee) ? 0 : fee,
+    };
   }
-  return "NBA";
+  return { sport: "NBA", entryFeeMist: 0 };
 }
 
 const POSITION_FILTERS: Record<string, string[]> = {
@@ -72,7 +73,7 @@ export default function TeamBuilderPage() {
   const { leagueId } = useParams();
   const router = useRouter();
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
-  const sport = useLeagueSport(String(leagueId));
+  const { sport, entryFeeMist } = useLeagueParams(String(leagueId));
   const slots = SLOT_DEFS[sport] || SLOT_DEFS.NBA;
 
   const [selectedAthletes, setSelectedAthletes] = useState<(Athlete | null)[]>(
@@ -84,7 +85,22 @@ export default function TeamBuilderPage() {
 
   const countdown = useCountdown(4 * 3600 + 22 * 60 + 15);
 
-  const ownedAthletes = MOCK_ATHLETES.filter((a) => a.sport === sport);
+  const { athletes: allOwned, loading: loadingAthletes } = useOwnedAthletes();
+  const ownedAthletes = allOwned.filter((a) => a.sport === sport);
+
+  const { tokenIds: existingTokenIds, loading: loadingExisting } = useExistingTeam(
+    typeof leagueId === "string" ? leagueId : ""
+  );
+
+  // Pre-populate slots when existing team is loaded
+  useEffect(() => {
+    if (loadingExisting || !existingTokenIds || ownedAthletes.length === 0) return;
+    const pre = slots.map((_, i) => {
+      const tokenId = existingTokenIds[i];
+      return ownedAthletes.find((a) => a.tokenId === tokenId) ?? null;
+    });
+    setSelectedAthletes(pre);
+  }, [loadingExisting, existingTokenIds, ownedAthletes.length]);
 
   const filteredAthletes = ownedAthletes.filter((a) => {
     if (posFilter === "All") return true;
@@ -136,18 +152,23 @@ export default function TeamBuilderPage() {
       return;
     }
     setSubmitting(true);
-    const leagueObjectId = LEAGUE_OBJECT_IDS[String(leagueId)] || (typeof leagueId === "string" ? leagueId : "");
+    const leagueObjectId = typeof leagueId === "string" ? leagueId : "";
     const tokenIds = selectedAthletes.filter(Boolean).map((a) => a!.tokenId);
-    const tx = buildSubmitTeamTx(leagueObjectId, tokenIds);
+    const isEdit = !!existingTokenIds;
+    const tx = isEdit
+      ? buildSubmitTeamTx(leagueObjectId, tokenIds)
+      : entryFeeMist === 0
+      ? buildSubmitTeamAndJoinFreeTx(leagueObjectId, tokenIds)
+      : buildSubmitTeamAndJoinTx(leagueObjectId, tokenIds, entryFeeMist);
     try {
       if (!tx) {
         await new Promise((r) => setTimeout(r, 1200));
-        toast.success("Team submitted! (demo mode)");
+        toast.success(isEdit ? "Team updated! (demo mode)" : "Team submitted & joined! (demo mode)");
         router.push(`/leagues/${leagueId}`);
         return;
       }
       const result = await signAndExecute({ transaction: tx });
-      toast.success("Team submitted on-chain!", {
+      toast.success(isEdit ? "Team updated on-chain!" : "Team submitted & joined on-chain!", {
         action: {
           label: "Explorer",
           onClick: () => window.open(`https://explorer-testnet.onelabs.cc/txblock/${result.digest}`, "_blank"),
@@ -324,7 +345,7 @@ export default function TeamBuilderPage() {
                 className="w-full py-6 text-[#171e00] font-black italic text-xl tracking-tighter uppercase transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100"
                 style={{ background: "linear-gradient(135deg, #c8f300 0%, #afd500 100%)", fontFamily: "'Space Grotesk', sans-serif" }}
               >
-                {submitting ? "Submitting..." : "Submit Team to League"}
+                {submitting ? "Submitting..." : existingTokenIds ? "Update Team" : "Submit Team & Join League"}
               </button>
               <p className="text-center mt-4 text-[10px] font-bold text-white/30 tracking-[0.2em] uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
                 Roster lock in: {countdown}

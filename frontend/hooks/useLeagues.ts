@@ -27,7 +27,20 @@ export function useLeagues() {
         const res = await fetch(`${BACKEND_URL}/api/leagues`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        setLeagues(data.leagues ?? []);
+        // Backend returns `leagueId`, map to `objectId` for the UI
+        const mapped = (data.leagues ?? []).map((l: any) => ({
+          objectId: l.leagueId,
+          name: l.name,
+          sport: l.sport,
+          entryFee: Number(l.entryFee),
+          maxEntrants: Number(l.maxEntrants),
+          currentEntrants: Array.isArray(l.entrants) ? l.entrants.length : 0,
+          startTimeMs: Number(l.startTimeMs),
+          endTimeMs: Number(l.endTimeMs),
+          status: Number(l.status),
+          prizePoolMist: Number(l.prizePool),
+        }));
+        setLeagues(mapped);
       } catch (e) {
         console.error("Failed to fetch leagues:", e);
       } finally {

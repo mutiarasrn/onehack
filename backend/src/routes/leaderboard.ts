@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { suiClient, PACKAGE_ID, SCORE_BOARD_ID, ATHLETE_REGISTRY, RARITY_MULTIPLIERS } from "../config";
+import { getSimulatedScores } from "../scoreSimulator";
 
 const router = Router();
 
@@ -55,6 +56,12 @@ async function getScores(): Promise<Record<number, number>> {
     await Promise.all(fetches);
   } catch (err) {
     console.error("[leaderboard] getScores error:", err);
+  }
+
+  // Fallback to in-memory simulated scores if chain has nothing
+  const hasChainScores = Object.values(scores).some((s) => s > 0);
+  if (!hasChainScores) {
+    return getSimulatedScores();
   }
   return scores;
 }
@@ -130,6 +137,7 @@ router.get("/leaderboard/:leagueId", async (req: Request, res: Response) => {
 
           const tokenIds: number[] = [];
           const rawTokenIds =
+            fields.athlete_token_ids ??
             fields.athlete_ids ??
             fields.token_ids ??
             fields.athletes ??

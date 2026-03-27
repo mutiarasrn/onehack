@@ -114,6 +114,54 @@ export function buildSubmitTeamTx(
   return tx;
 }
 
+/** Submit team + join league in one atomic PTB (free entry). */
+export function buildSubmitTeamAndJoinFreeTx(
+  leagueObjectId: string,
+  athleteTokenIds: number[],
+  clockId = "0x6"
+): Transaction | null {
+  if (!deployed) return null;
+
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${PACKAGE_ID}::fantasy_team::submit_team`,
+    arguments: [
+      tx.pure(bcs.Address.serialize(leagueObjectId)),
+      tx.pure(bcs.vector(bcs.u64()).serialize(athleteTokenIds)),
+    ],
+  });
+  tx.moveCall({
+    target: `${PACKAGE_ID}::league_manager::join_league_free`,
+    arguments: [tx.object(leagueObjectId), tx.object(clockId)],
+  });
+  return tx;
+}
+
+/** Submit team + join league in one atomic PTB (paid entry). */
+export function buildSubmitTeamAndJoinTx(
+  leagueObjectId: string,
+  athleteTokenIds: number[],
+  entryFeeMist: number,
+  clockId = "0x6"
+): Transaction | null {
+  if (!deployed) return null;
+
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${PACKAGE_ID}::fantasy_team::submit_team`,
+    arguments: [
+      tx.pure(bcs.Address.serialize(leagueObjectId)),
+      tx.pure(bcs.vector(bcs.u64()).serialize(athleteTokenIds)),
+    ],
+  });
+  const [payment] = tx.splitCoins(tx.gas, [entryFeeMist]);
+  tx.moveCall({
+    target: `${PACKAGE_ID}::league_manager::join_league`,
+    arguments: [tx.object(leagueObjectId), payment, tx.object(clockId)],
+  });
+  return tx;
+}
+
 // ─── Marketplace ───────────────────────────────────────────────────────────
 
 /** List an AthleteNFT for sale at a fixed OCT price (in MIST). */
