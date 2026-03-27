@@ -16,6 +16,12 @@ export const RPC_URL =
 
 export const PORT = parseInt(process.env.PORT || "3001", 10);
 
+export const ADMIN_CAP_ID =
+  process.env.ADMIN_CAP_ID ||
+  "0x48a8eaa6760f5671a7667df8b3cef6bafc0ffcd432355206043638daacc9d994";
+
+export const ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY || "";
+
 export const suiClient = new SuiClient({ url: RPC_URL });
 
 export interface AthleteInfo {

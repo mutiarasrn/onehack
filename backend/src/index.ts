@@ -6,6 +6,7 @@ import listingsRouter from "./routes/listings";
 import leaguesRouter from "./routes/leagues";
 import scoresRouter from "./routes/scores";
 import leaderboardRouter from "./routes/leaderboard";
+import { startAutoResolver } from "./autoResolver";
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
 app.listen(PORT, () => {
   console.log(`OneChain Fantasy backend listening on port ${PORT}`);
+  startAutoResolver();
 });
 
 export default app;
